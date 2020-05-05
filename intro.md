@@ -134,3 +134,64 @@ int main() {
 }
 ```
 *An example using std::function and its syntax*
+
+
+### Enum Classes
+
+```cpp
+enum class Day {
+  Sun, Mon, Tue, Wed, Thu, Fri, Sat
+};
+
+Day d = Day::Fri; // implicitly equivalent to 5
+```
+
+Enum classes are generally used to symbolize a fixed set of constants / identifiers; they are a higher-level alternative to using arbitrary int values typical in a C program.
+
+In C++, each value is implicitly assigned an integer value beginning at 0; these values can be explicitly assigned to any value.
+
+It is a fairly common practice to use switch-case statements, in which each enum value is a different case.
+
+> An advanced usage of enums is when APIs overload the binary *or* (`|`) operator for enum classes. This is typically done to design functions that can accept a variable number of different options or settings.
+
+```cpp
+enum class Unit { Celsius, Farenheit, Kelvin };
+
+double to_kelvin(double temp, Unit unit) {
+  switch (unit) {
+    case Unit::Celsius: return temp + 273.15;
+    case Unit::Farenheit: return (temp - 32.0) * (5.0 / 9.0) + 273.15;
+    default: return temp;
+  }
+}
+
+auto tk = to_kelvin(0.0, Unit::Celsius);
+```
+
+
+### Type Qualifiers
+Several C++ keywords serve as *type qualifiers*, which modify attributes of a given type when applied to them. For a type `T`.
+- `const T` means the value of the variable is constant and cannot be changed. Use whenever possible for better software design.
+- `*T` is a raw pointer to a type `T` (a pointer is the memory address of a particular variable)
+- `unsigned T`, when applied to numeric types, restricts the range of `T` to positive values, and doubles the range. In embedded applications, it is common for `uint8_t` (an `int` the size of one byte) to be aliased for `unsigned char`, which has a range of [0, 255].
+- `constexpr T` means the value of the variable is computed at compile-time, maximizing performance and software design. Use whenever possible.
+
+### More on `constexpr`
+
+In C, the `#define A B` command makes `A` an alias for `B`, such that whenever the program is built, all instances of `A` are automatically replaced by the computed value of `B`.
+
+In C++, `constexpr auto A = B;` is virtually identical to `#define`, but is better due to type safety, syntax safety, and limiting arbitrary expressions. Since all `constexpr` expressions are evaluated at *compile time*, the final assembly code has all `constexpr` expressions pre-computed, which greatly increases performance at the cost of compilation time.
+
+Because `constexpr` expressions are evaluated at compile time, these expressions can only use a combination of primitives and other `constexpr` expressions. These expressions are most often used for simple calculations, constants, and *magic numbers*.
+
+```cpp
+// computes the factorial of `n`, so long as the result is a number less than 64 bits long
+constexpr std::uint64_t factorialOf(const int n) {
+    return n > 1 ? n * factorialOf(n - 1) : 1;
+}
+
+// f42 is a giant number, which would be slow to usually compute.
+// However, with constexpr, `f20` is pre-computed and replaced by 42!
+// Because it is pre-computed, there is a 100% performance increase (time to compute ~ 0.0s)
+constexpr auto f20 = factorialOf(20);
+```
