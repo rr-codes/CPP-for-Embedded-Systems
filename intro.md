@@ -195,3 +195,121 @@ constexpr std::uint64_t factorialOf(const int n) {
 // Because it is pre-computed, there is a 100% performance increase (time to compute ~ 0.0s)
 constexpr auto f20 = factorialOf(20);
 ```
+
+### Implicit Casting
+
+Some primitive types may be automatically casted (converted) to other types:
+
+- `unsigned T <=> T`: unsigned types and their signed counterparts can be implicitly casted to each other. If casting `unsigned T => T`, the cast is safe so long as the unsigned type's value doesn't exceed the signed type's range of values. If casting `T => unsigned T`, the cast is safe so long as the signed type's value is non-negative; else, the value wraps around to the maximum value of `T`.
+
+- `[unsigned] char <=> [unsigned] T`, where `T` is a numeric type. A char is an alias for an 8-bit number (one byte). Since a `char` is a single byte, `unsigned char` is frequently used in embedded codebases to represent a byte of data (a number between 0 - 255). If casting `T => char`, the cast is undefined if the value of `T` exceeds the range of `[unsigned] char`.
+
+- `[unsigned] char <=> bool`: If casting `int => bool`, `0` becomes `false` and any other number becomes `true`. If `bool => int`, `true => 1` and `false => 0`.
+
+- `T1 <=> T2`, where both are numeric types. If `T1` has a range less than `T2`, the cast `T1 => T2` is known as a *widening conversion* and can be performed safely. Otherwise, a *narrowing conversion* is performed, and is safe only if the value of `T2` is within the range of `T1`.
+
+```cpp
+char a_char = 'a';
+int a_int = a_char; // 97
+char P_char = 80; // 'P'
+
+unsigned int i = -1; // 2^32 - 1 because of underflow
+int t = true; // 1
+
+char x = '9'; // the character '9', or the integer 71
+int n = x - '0'; // converts the character '9' to the number 9
+```
+
+### Explicit Casting
+
+Both primitive and non-primitive types can be (possibly) casted to other types with explicit casting:
+
+- `static_cast<T>(var)`: this is the 'traditional' explcit cast; it should be considered as the 'default' cast to use when another cast is not better suited.
+
+- `reinterpret_cast<T*>(var)`: this cast is used for low-level pointers and bit manipulation, as it converts any object to a sequence of raw bytes. Do not use unless absolutely necessary.
+
+- `const_cast<T>(var)`: used to add or remove `const` or `volatile` to a variable. Mostly this cast is unnecessary, but has advanced usages such as overloading member functions.
+
+- `dynamic_cast<T>(var)`: used to handle polymorphic casts (via virtual classes).
+
+For example, f class `B` inherits from class `A`, then
+```cpp
+B b = dynamic_cast<B>(a); // where a is of type `A`
+```
+casts `a` to type `B`, assuming such cast is viable.
+
+There is also C-style casting (`(T) foo`), which performs the first of the following casts which succeeds:
+1. `const_cast`
+2. `static_cast`
+3. `static_cast`, then `const_cast`
+4. `reinterpret_cast`
+5. `reinterpret_cast`, then `const_cast`
+
+C-style casts should be avoided in C++ as they are inherently unpredictable, and may decay into the dangerous `reinterpret_cast`.
+
+### Pointers & References
+
+> “Phenomenal cosmic powers… Itty bitty living space.” — Genie (Aladdin)
+
+*Pointers* are variables which store the memory address of other variables / objects.
+
+Assuming `foo` is a `T` located at address *x*:
+```cpp
+&foo; // this is the memory address of foo (`x`)
+T* ptr; // this is a variable of type `T*` (a pointer to T)
+ptr = &foo; // assigns the ptr to the memory address of `foo` (ptr == x)
+
+*reinterpret_cast<T*>(x); // an equivalent (very dangerous) way of accessing `foo`
+```
+
+The syntax of pointers can be somewhat confusing:
+- For an object `foo`, `&foo` gets it's memory address (dereferences it)
+- For a pointer `p`, to change what `p` is pointing to, use `p = &foo`
+- To change the value of whatever `p` is pointing to, use `*p = bar`
+- To access the original value / object to modify it, use `*p`. When accessing member functions of the original object, the syntax is `(*p).foo()` or `p->foo()` (latter is preferred).
+
+```cpp
+int main() {
+  int i = 1, j = 3;
+  int* ptr = &i // ptr points to i
+  *ptr = 2; // i is now 2
+  ptr = &j; // ptr points to j (doesn't change i)
+
+  // `*ptr = ` doesn't change ptr (affects target)
+  // `ptr = ` changes ptr but nothing else
+}
+```
+
+Historically, `*foo` meant to get the value stored in whichever pointer (dereference). In modern C++, due to operator overloading, it is mostly syntactic sugar meaning to 'get the underlying value'. For example, `std::optional<T>`, smart pointers, iterators, etc. all use this convention.
+
+The arrow operator (`->`) is also frequently overloaded as syntactic sugar to acess the underlying variable's members (usually implemented as shorthand for `(*foo).func()`).
+
+*References* are variables which are just aliases (another name) of other variables / objects. References should be used whenever possible as function arguments (except primitives); doing so
+- Allows the argument to be changed
+- Greatly saves memory and improves performance
+
+If the function doesn't modify or change the argument, then a const reference (`const T&`) should be used. Some functions use reference arguments as a way to 'return' multiple values.
+
+```cpp
+// bad because it copies the Foo object
+constexpr int valueOf1(Foo foo) { return foo.value; }
+
+// bad because pointers are dangerous and can be modified and passed nullptr
+// pointer params can be reassigned or modified; const pointers only the latter
+// foo->bar() is a shortcut for (*foo).bar();
+constexpr int valueOf2(const Foo* foo) {  return foo->value; }
+
+// best of both worlds since no copying, unmodifiable, and is safe
+// reference params can be reassigned or modified; const refs can do neither
+constexpr int valueOf3(const Foo& foo) { return foo.value; }
+
+```
+
+If you change a pointer or a reference, the same change is applied to the original object. By default, pointers shouldn't be used as they are unnecessary and prone to bugs, particularly null pointer faults.
+
+|   | Value | Pointer | Reference |
+|---|---|---|---|
+| Syntax | `T foo` | `T* ptr = &foo` </p> `T* ptr = new T(args)` | `T& ref = foo` |
+| Assignment to `nullptr`? | No | Yes (`ptr == nullptr`) | No |
+| Assignment | `foo = baz` </p> `foo = *ptr` | `*ptr = baz` </p> `ptr = &baz` | `ref = baz` |
+| Can be changed in functions? | No | Yes | Yes (unless you use `const T&`) |
